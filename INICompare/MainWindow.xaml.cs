@@ -193,30 +193,43 @@ namespace INICompare
             file = new INI();
 
             var duplicateKeys = new List<Tuple<string, string, string, string>>(); //block, key, old value, new value
+            string currentBlockName = "";
+            Boolean duplicateSection = false;
 
             Dictionary<string, string> currentBlock = null;
             foreach (var line in lines)
             {
                 try
                 {
+                    // need to check if there is a duplicate value already in the main dictionary
                     if (iniHeader.IsMatch(line))
-                        file.Add(line.Trim(new char[] { ' ', ']', '[', '\t' }), currentBlock = new INIBlock());
+                    {
+                        duplicateSection = false;
+                        currentBlockName = line.Trim(new char[] { ' ', ']', '[', '\t' });
+                        if (!file.ContainsKey(currentBlockName))
+                            file.Add(currentBlockName, currentBlock = new INIBlock());
+                        else
+                            duplicateSection = true;
+                    }
 
                     if (iniKeyValue.IsMatch(line))
                     {
-                        if (currentBlock == null)
+                        if ((currentBlock == null) && (!duplicateSection))
                             file.Add("", currentBlock = new INIBlock());
 
                         var match = iniKeyValue.Match(line);
                         var key = match.Groups[1].Value.Trim();
                         var value = match.Groups[2].Value.Trim();
 
-                        if (currentBlock.ContainsKey(key))
+                        if ((currentBlock.ContainsKey(key)) && (!duplicateSection))
                         {
-                            var currentBlockName = file.FirstOrDefault(kv => kv.Value == currentBlock).Key;
                             duplicateKeys.Add(Tuple.Create(currentBlockName, key, currentBlock[key], value));
 
                             currentBlock[key] = value;
+                        }
+                        else if (duplicateSection)
+                        {
+                            duplicateKeys.Add(Tuple.Create(currentBlockName, key, file[currentBlockName][key], value));
                         }
                         else
                         {
